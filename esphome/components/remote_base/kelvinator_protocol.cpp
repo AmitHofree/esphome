@@ -6,112 +6,93 @@ namespace remote_base {
 
 static const char *const TAG = "remote.kelvinator";
 
-static const uint16_t kKelvinatorTick = 85;
-static const uint16_t kKelvinatorHdrMarkTicks = 106;
-static const uint16_t kKelvinatorHdrMark = kKelvinatorHdrMarkTicks * kKelvinatorTick;
-static const uint16_t kKelvinatorHdrSpaceTicks = 53;
-static const uint16_t kKelvinatorHdrSpace = kKelvinatorHdrSpaceTicks * kKelvinatorTick;
-static const uint16_t kKelvinatorBitMarkTicks = 8;
-static const uint16_t kKelvinatorBitMark = kKelvinatorBitMarkTicks * kKelvinatorTick;
-static const uint16_t kKelvinatorOneSpaceTicks = 18;
-static const uint16_t kKelvinatorOneSpace = kKelvinatorOneSpaceTicks * kKelvinatorTick;
-static const uint16_t kKelvinatorZeroSpaceTicks = 6;
-static const uint16_t kKelvinatorZeroSpace = kKelvinatorZeroSpaceTicks * kKelvinatorTick;
-static const uint16_t kKelvinatorGapSpaceTicks = 235;
-static const uint16_t kKelvinatorGapSpace = kKelvinatorGapSpaceTicks * kKelvinatorTick;
-const uint8_t kKelvinatorCmdFooter = 2;
-const uint8_t kKelvinatorCmdFooterBits = 3;
-const uint8_t kKelvinatorChecksumStart = 10;
+static const uint16_t KELVINATOR_TICK = 85;
+static const uint16_t KELVINATOR_HDR_MARK_TICKS = 106;
+static const uint16_t KELVINATOR_HDR_MARK = KELVINATOR_HDR_MARK_TICKS * KELVINATOR_TICK;
+static const uint16_t KELVINATOR_HDR_SPACE_TICKS = 53;
+static const uint16_t KELVINATOR_HDR_SPACE = KELVINATOR_HDR_SPACE_TICKS * KELVINATOR_TICK;
+static const uint16_t KELVINATOR_BIT_MARK_TICKS = 8;
+static const uint16_t KELVINATOR_BIT_MARK = KELVINATOR_BIT_MARK_TICKS * KELVINATOR_TICK;
+static const uint16_t KELVINATOR_ONE_SPACE_TICKS = 18;
+static const uint16_t KELVINATOR_ONE_SPACE = KELVINATOR_ONE_SPACE_TICKS * KELVINATOR_TICK;
+static const uint16_t KELVINATOR_ZERO_SPACE_TICKS = 6;
+static const uint16_t KELVINATOR_ZERO_SPACE = KELVINATOR_ZERO_SPACE_TICKS * KELVINATOR_TICK;
+static const uint16_t KELVINATOR_GAP_SPACE_TICKS = 235;
+static const uint16_t KELVINATOR_GAP_SPACE = KELVINATOR_GAP_SPACE_TICKS * KELVINATOR_TICK;
+static const uint8_t KELVINATOR_CHECKSUM_START = 10;
 
 void KelvinatorProtocol::encode(RemoteTransmitData *dst, const KelvinatorData &data) {
   dst->set_carrier_frequency(38000);
-  dst->reserve(9871243); // TODO: Calculate what this should be
+  dst->reserve(2 * (2 * 6 + 2 * 8 * 8)); // Each message can carry 8 bytes, and requires 12 extra items
 
-  // Command block #1 (4 bytes)
-  dst->item(kKelvinatorHdrMark, kKelvinatorHdrSpace);
-  this->encode_data_(dst, data.raw, 4);
+  // There are two messages back-to-back in a full Kelvinator IR message
+  // sequence.
+  for (uint8_t i = 0, offset = 0; i < 2; i++, offset += 8) {
+    // Header + Data Block #1 (4 bytes)
+    dst->item(KELVINATOR_HDR_MARK, KELVINATOR_HDR_SPACE);
+    for (uint8_t j = 0; j < 4; j++) {
+      this->encode_byte_(dst, data[offset + j]);
+    }
 
-  // Footer for command block (3 bits (b010)) + footer 
-  dst->item(kKelvinatorBitMark, kKelvinatorZeroSpace);
-  dst->item(kKelvinatorBitMark, kKelvinatorOneSpace);
-  dst->item(kKelvinatorBitMark, kKelvinatorZeroSpace);
-  dst->item(kKelvinatorBitMark, kKelvinatorGapSpace);
+    // Command data footer (3 bits, b010) + footer
+    dst->item(KELVINATOR_BIT_MARK, KELVINATOR_ZERO_SPACE);
+    dst->item(KELVINATOR_BIT_MARK, KELVINATOR_ONE_SPACE);
+    dst->item(KELVINATOR_BIT_MARK, KELVINATOR_ZERO_SPACE);
+    dst->item(KELVINATOR_BIT_MARK, KELVINATOR_GAP_SPACE);
 
-  // Data block #1 (4 bytes)
-  this->encode_data_(dst, data.raw + 4, 4);
-  dst->item(kKelvinatorBitMark, 2 * kKelvinatorGapSpace);
-
-  // Command block #2 (4 bytes)
-  dst->item(kKelvinatorHdrMark, kKelvinatorHdrSpace);
-  this->encode_data_(dst, data.raw + 8, 4);
-
-  // Footer for command block (3 bits (b010)) + footer 
-  dst->item(kKelvinatorBitMark, kKelvinatorZeroSpace);
-  dst->item(kKelvinatorBitMark, kKelvinatorOneSpace);
-  dst->item(kKelvinatorBitMark, kKelvinatorZeroSpace);
-  dst->item(kKelvinatorBitMark, kKelvinatorGapSpace);
-
-  // Data block #2 (4 bytes)
-  this->encode_data_(dst, data.raw + 12, 4);
-  dst->item(kKelvinatorBitMark, 2 * kKelvinatorGapSpace);
+    // Data block #2 (4 bytes) + footer
+    for (uint8_t k = 0; k < 4; k++) {
+      this->encode_byte_(dst, data[offset + k + 4]);
+    }
+    dst->item(KELVINATOR_BIT_MARK, 2 * KELVINATOR_GAP_SPACE);
+  }
 }
 
 void KelvinatorProtocol::encode_byte_(RemoteTransmitData *dst, uint8_t item) {
     for (uint8_t bit = 0; bit < 8; bit++, item >>= 1) {
       if (item & 1) {
-        dst->item(kKelvinatorBitMark, kKelvinatorOneSpace);
+        dst->item(KELVINATOR_BIT_MARK, KELVINATOR_ONE_SPACE);
       } else {
-        dst->item(kKelvinatorBitMark, kKelvinatorZeroSpace);
+        dst->item(KELVINATOR_BIT_MARK, KELVINATOR_ZERO_SPACE);
       }
     }
 }
 
-void KelvinatorProtocol::encode_data_(RemoteTransmitData *dst, const uint8_t *data, uint8_t nbytes) {
-  for (uint16_t i = 0; i < nbytes; i++) {
-      this->encode_byte_(dst, *(data + i));
-  }
-}
-
 optional<KelvinatorData> KelvinatorProtocol::decode(RemoteReceiveData src) {
-  uint8_t out[kKelvinatorStateLength];
+  KelvinatorData out;
 
-  // Command block #1 (4 bytes)
-  if (!src.expect_item(kKelvinatorHdrMark, kKelvinatorHdrSpace)) return {};
-  if (this->decode_data_(src, out, 4) != 4) return {};
+  // There are two messages back-to-back in a full Kelvinator IR message
+  // sequence.
+  for (uint8_t i = 0, offset = 0; i < 2; i++, offset += 8) {
+    // Header + Data Block #1 (4 bytes)
+    if (!src.expect_item(KELVINATOR_HDR_MARK, KELVINATOR_HDR_SPACE)) return {};
+    for (uint8_t j = 0; j < 4; j++) {
+      if (this->decode_byte_(src, out.data() + offset + j) != 1) return {};
+    }
 
-  // Footer for command block (3 bits (b010)) + footer 
-  if (!src.expect_item(kKelvinatorBitMark, kKelvinatorZeroSpace)) return {};
-  if (!src.expect_item(kKelvinatorBitMark, kKelvinatorOneSpace)) return {};
-  if (!src.expect_item(kKelvinatorBitMark, kKelvinatorZeroSpace)) return {};
-  if (!src.expect_item(kKelvinatorBitMark, kKelvinatorGapSpace)) return {};
+    // Command data footer (3 bits, b010) + footer
+    if (!src.expect_item(KELVINATOR_BIT_MARK, KELVINATOR_ZERO_SPACE)) return {};
+    if (!src.expect_item(KELVINATOR_BIT_MARK, KELVINATOR_ONE_SPACE)) return {};
+    if (!src.expect_item(KELVINATOR_BIT_MARK, KELVINATOR_ZERO_SPACE)) return {};
+    if (!src.expect_item(KELVINATOR_BIT_MARK, KELVINATOR_GAP_SPACE)) return {};
 
-  // Data block #1 (4 bytes)
-  if (this->decode_data_(src, out + 4, 4) != 4) return {};
-  if (!src.expect_item(kKelvinatorBitMark, 2 * kKelvinatorGapSpace)) return {};
+    // Data block #2 (4 bytes) + footer
+    for (uint8_t k = 0; k < 4; k++) {
+      if (this->decode_byte_(src, out.data() + offset + k + 4) != 1) return {};
+    }
+    if (!src.expect_item(KELVINATOR_BIT_MARK, 2 * KELVINATOR_GAP_SPACE)) return {};
+  }
 
-  // Command block #2 (4 bytes)
-  if (!src.expect_item(kKelvinatorHdrMark, kKelvinatorHdrSpace)) return {};
-  if (this->decode_data_(src, out + 8, 4) != 4) return {};
-
-  // Footer for command block (3 bits (b010)) + footer 
-  if (!src.expect_item(kKelvinatorBitMark, kKelvinatorZeroSpace)) return {};
-  if (!src.expect_item(kKelvinatorBitMark, kKelvinatorOneSpace)) return {};
-  if (!src.expect_item(kKelvinatorBitMark, kKelvinatorZeroSpace)) return {};
-  if (!src.expect_item(kKelvinatorBitMark, kKelvinatorGapSpace)) return {};
-
-  // Data block #2 (4 bytes)
-  if (this->decode_data_(src, out + 12, 4) != 4) return {};
-  if (!src.expect_item(kKelvinatorBitMark, 2 * kKelvinatorGapSpace)) return {};
-
-  return *((KelvinatorData*)(out));
+  if (!out.is_valid()) return {};
+  return out;
 }
 
 uint8_t KelvinatorProtocol::decode_byte_(RemoteReceiveData src, uint8_t *data) {
   uint8_t item = 0;
   for (uint8_t bit = 0; bit < 8; bit++, item >>= 1) {
-      if (src.expect_item(kKelvinatorBitMark, kKelvinatorOneSpace)) {
+      if (src.expect_item(KELVINATOR_BIT_MARK, KELVINATOR_ONE_SPACE)) {
         item = (item << 1) | 1;
-      } else if (src.expect_item(kKelvinatorBitMark, kKelvinatorZeroSpace)) {
+      } else if (src.expect_item(KELVINATOR_BIT_MARK, KELVINATOR_ZERO_SPACE)) {
         item = (item << 1) | 0;
       } else {
         return 0;
@@ -121,16 +102,38 @@ uint8_t KelvinatorProtocol::decode_byte_(RemoteReceiveData src, uint8_t *data) {
   return 1;
 }
 
-uint8_t KelvinatorProtocol::decode_data_(RemoteReceiveData src, uint8_t *data, uint8_t nbytes) {
-  uint8_t bytes_read = 0;
-  for (uint16_t i = 0; i < nbytes; i++, bytes_read++) {
-      if (!this->decode_byte_(src, data + i)) return 0;
-  }
-  return bytes_read;
+void KelvinatorProtocol::dump(const KelvinatorData &data) {
+    char buffer[KELVINATOR_STATE_LENGTH * 2 + 1];  // Each byte takes 2 hex chars + null terminator.
+    
+    // Fill the buffer with the hex representation of the data.
+    for (int i = 0; i < KELVINATOR_STATE_LENGTH; i++) {
+        sprintf(&buffer[i * 2], "%02X", data[i]);
+    }
+
+    // Log the entire string in one call.
+    ESP_LOGI(TAG, "Received Kelvinator: data=0x%s", buffer);
 }
 
-void KelvinatorProtocol::dump(const KelvinatorData &data) {
-  ESP_LOGI(TAG, "Received Kelvinator: data=0x%08" PRIX32 ", nbits=%d", data.data, data.nbits);
+uint8_t KelvinatorData::calc_block_checksum_(const uint8_t *block) {
+  uint8_t sum = KELVINATOR_CHECKSUM_START;
+  // Sum the lower half of the first 4 bytes of this block.
+  for (uint8_t i = 0; i < 4 && i < 8 - 1; i++, block++)
+    sum += (*block & 0b1111);
+  // then sum the upper half of the next 3 bytes.
+  for (uint8_t i = 4; i < 7; i++, block++)
+    sum += (*block >> 4);
+  // Trim it down to fit into the 4 bits allowed. i.e. Mod 16.
+  return sum & 0b1111;
+}
+  
+bool KelvinatorData::is_valid() {
+  for (uint16_t offset = 0; offset + 7 < 16; offset += 8) {
+    // Top 4 bits of the last byte in the block is the block's checksum.
+    auto checksum_bits = ((*this)[offset + 7] & 0xF0) >> 4;
+    if (checksum_bits != this->calc_block_checksum_(this->data() + offset))
+      return false;
+  }
+  return true;
 }
 
 }  // namespace remote_base
