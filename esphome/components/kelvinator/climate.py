@@ -4,7 +4,7 @@ import esphome.config_validation as cv
 from esphome.const import CONF_ID
 
 AUTO_LOAD = ["climate_ir"]
-CODEOWNERS = ["@amithofre"]
+CODEOWNERS = ["@amithofree"]
 
 kelvinator_ns = cg.esphome_ns.namespace("kelvinator")
 KelvinatorClimate = kelvinator_ns.class_("KelvinatorClimate", climate_ir.ClimateIR)
