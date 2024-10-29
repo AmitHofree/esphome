@@ -1,5 +1,5 @@
-#include "kelvinator_protocol.h"
 #include "esphome/core/log.h"
+#include "kelvinator_protocol.h"
 
 namespace esphome {
 namespace remote_base {
@@ -21,9 +21,10 @@ static const uint16_t KELVINATOR_GAP_SPACE_TICKS = 235;
 static const uint16_t KELVINATOR_GAP_SPACE = KELVINATOR_GAP_SPACE_TICKS * KELVINATOR_TICK;
 static const uint8_t KELVINATOR_CHECKSUM_START = 10;
 
+
 void KelvinatorProtocol::encode(RemoteTransmitData *dst, const KelvinatorData &data) {
   dst->set_carrier_frequency(38000);
-  dst->reserve(2 * (2 * 6 + 2 * 8 * 8));  // Each message can carry 8 bytes, and requires 6 extra signals
+  dst->reserve(2 * 2 * (6 + 8 * 8));  // Two messages, each message can carry 8 bytes, requires 6 extra bits, and each bit is one mark + space
 
   // There are two messages back-to-back in a full Kelvinator IR message
   // sequence.

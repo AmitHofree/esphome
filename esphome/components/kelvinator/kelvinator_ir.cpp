@@ -1,17 +1,20 @@
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
-#include "esphome/components/coolix/coolix.h"
+#include "esphome/components/remote_base/kelvinator_protocol.h"
 #include "kelvinator_ir.h"
 #include "kelvinator_data.h"
 
 namespace esphome {
 namespace kelvinator {
 
+using remote_base::KelvinatorProtocol;
+
 static const char *const TAG = "kelvinator.climate";
 
 void KelvinatorClimate::transmit_state() {
   ClimateData data;
   data.set_power(true);
+  data.set_light(true);
 
   switch (this->mode) {
     case climate::CLIMATE_MODE_COOL:
@@ -60,7 +63,7 @@ void KelvinatorClimate::transmit_state() {
 
   switch (this->swing_mode) {
     case climate::CLIMATE_SWING_VERTICAL:
-      data.set_swing_vertical(true, SwingPosition::AUTO);
+      data.set_swing_vertical(true, SwingPosition::SWING_AUTO);
       break;
     case climate::CLIMATE_SWING_OFF:
     default:
