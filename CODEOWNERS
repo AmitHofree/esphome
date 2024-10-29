@@ -221,6 +221,7 @@ esphome/components/interval/* @esphome/core
 esphome/components/jsn_sr04t/* @Mafus1
 esphome/components/json/* @OttoWinter
 esphome/components/kamstrup_kmp/* @cfeenstra1024
+esphome/components/kelvinator/* @amithofree
 esphome/components/key_collector/* @ssieb
 esphome/components/key_provider/* @ssieb
 esphome/components/kuntze/* @ssieb
